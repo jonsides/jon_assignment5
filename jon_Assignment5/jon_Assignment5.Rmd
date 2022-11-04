@@ -1,0 +1,103 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## 1. Preliminaries
+```{r}
+library(tidyverse)
+library(ggthemes)
+library(rstatix)
+library(ggpubr)
+```
+
+## 2. Subject-level means
+```{r}
+subject_accuracy <- assignment5 %>% group_by(subject, prime_condition) %>% summarise(subject_mean_acc=mean(accuracy))
+
+subject_rt <- assignment5 %>% group_by(subject, prime_condition) %>% summarise(subject_mean_rt=mean(response_RT))
+```
+
+## 3. Format of the data
+
+#### Both subject_accuracy and subject_rt are in long format because each subject is listed in multiple rows, one for each ####primecondition. 
+
+## 4. Long to Wide conversion
+```{r}
+subject_accuracy_wide <- subject_accuracy %>%  pivot_wider(names_from = prime_condition, values_from = subject_mean_acc)
+```
+
+## 5. Wide to Long Conversion
+```{r}
+subject_accuracy_long <- subject_accuracy_wide %>% pivot_longer(c(2:5), names_to = "prime_condition", values_to = "subject_mean_acc")
+```
+
+## 6. Interpretation
+
+#### subject_accuracy has the same information as subject_accuracy_long.
+
+## 7. t-test in R
+```{r}
+#### 1)   2)paired   3)assume unequal variance  4)assume 2-tail
+t.test(subject_accuracy_wide$phonological, subject_accuracy_wide$semantic, paired=TRUE)
+```
+## 8. t-test interpretation
+
+####p=9.033e-05, sp p is much small than 0.05. This means there is a significant difference between the mean accuracy for ####the phonological and semantic conditions (phonological is significantly higher)
+
+## 9. t-test manual
+```{r}
+subject_accuracy_wide= subject_accuracy_wide %>% mutate("differences"=phonological-semantic)
+
+x_bar=mean(subject_accuracy_wide$differences)
+
+s=sd(subject_accuracy_wide$differences)
+
+n=nrow(subject_accuracy_wide)
+
+t_numerator =x_bar - 0
+t_denominator= s / sqrt(n)
+t=t_numerator/t_denominator
+
+df=n-1
+
+p_value=2*(1-pt(t,df))
+```
+#### t= 4.40753 using one sample t-test, matching the value R gave us. df=37-1=36
+#### p= 9.033e-05, matcheing the value the first test gave.
+
+
+## 10. t-test outliers
+```{r}
+hist(subject_accuracy_wide$differences)
+```
+```{r}
+outliers <- subject_accuracy_wide %>% identify_outliers(differences)
+```
+####There is one outlier but it is not extreme.
+
+```{r}
+outlier_subs = outliers %>% pull(subject)
+newdf = subject_accuracy_wide %>% filter(!subject %in% outlier_subs)
+```
+
+
+## 11. t-test normality
+```{r}
+ggqqplot(subject_accuracy_wide, "differences")
+```
+```{r}
+subject_accuracy_wide %>% shapiro_test(differences)
+```
+#### Yes the normality assumption is satisfied. All the qqplot points are roughly within the greay area the shapiro test was insignificant (p>0.68).
+
+## 12. The test of assumptions does not change the conlusion because we met the assumtions that the data is normal and that there are no extreme outliers. We can conclude that the phonological cues resulted in significantly higher levels of accuracy when compared to semantic cues.
+
+## 13. Plot RTs
+```{r}
+mean_rt <- subject_rt %>% group_by(prime_condition) %>% summarise(mean_rt=mean(subject_mean_rt))
+
+mean_rt %>% ggplot(aes(x=prime_condition, y= mean_rt))+geom_col()+ labs(x="prime condition", y="mean rt (ms)", title="mean rt by prime condition.")
+```
+#### Semantic and both technically produced the highest and lowest mean reaction time respectivelt, but the means are all very close to eachother. There is definitely no significant difference between unrelated and other, and it looks like phonological is slightly but not significantly higher as weel. Semantic might have a signifcantly higher reaction time thant the other groups. 
+
